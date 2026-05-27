@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>勤怠ノート</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">勤</span>
+          <div>
+            <h1>勤怠ノート</h1>
+            <p id="brand-month">2026年5月</p>
+          </div>
+        </div>
+
+        <section class="summary-stack" aria-label="月次サマリー">
+          <article>
+            <span>勤務日数</span>
+            <strong id="work-days">0日</strong>
+          </article>
+          <article>
+            <span>合計勤務</span>
+            <strong id="total-hours">0:00</strong>
+          </article>
+          <article>
+            <span>平均勤務</span>
+            <strong id="average-hours">0:00</strong>
+          </article>
+          <article>
+            <span>休憩合計</span>
+            <strong id="total-break">0分</strong>
+          </article>
+        </section>
+      </aside>
+
+      <main>
+        <header class="toolbar" aria-label="操作">
+          <div class="month-switcher">
+            <button class="icon-button" id="prev-month" type="button" title="前月" aria-label="前月">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <div>
+              <span>対象月</span>
+              <strong id="active-month">2026年5月</strong>
+            </div>
+            <button class="icon-button" id="next-month" type="button" title="翌月" aria-label="翌月">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+          </div>
+          <div class="actions">
+            <label class="icon-button file-button" title="CSVを読み込み" aria-label="CSVを読み込み">
+              <input id="csv-input" type="file" accept=".csv,text/csv" />
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0-12 4 4m-4-4-4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+            </label>
+            <button class="icon-button" id="download-csv" type="button" title="CSVを書き出し" aria-label="CSVを書き出し">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9m0 12 4-4m-4 4-4-4M4 5V3h16v2" /></svg>
+            </button>
+            <button class="primary-button" id="add-row" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              追加
+            </button>
+          </div>
+        </header>
+
+        <section class="punch-panel" aria-label="打刻">
+          <div class="punch-today">
+            <span>今日の打刻</span>
+            <strong id="punch-date">-</strong>
+            <p id="punch-detail">未入力</p>
+          </div>
+          <div class="punch-actions">
+            <button class="punch-button start" id="punch-start" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" /></svg>
+              出勤
+            </button>
+            <button class="punch-button break-start" id="break-start" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5h2v14h-2zM15 5h2v14h-2z" /></svg>
+              休憩開始
+            </button>
+            <button class="punch-button break-end" id="break-end" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" /></svg>
+              休憩終了
+            </button>
+            <button class="punch-button end" id="punch-end" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>
+              退勤
+            </button>
+          </div>
+        </section>
+
+        <section class="status-band" aria-label="勤務状況">
+          <div>
+            <span>本日</span>
+            <strong id="today-status">未入力</strong>
+          </div>
+          <div>
+            <span>最長勤務</span>
+            <strong id="longest-day">-</strong>
+          </div>
+          <div>
+            <span>未退勤</span>
+            <strong id="open-count">0件</strong>
+          </div>
+        </section>
+
+        <section class="table-panel">
+          <div class="table-header">
+            <h2>勤怠一覧</h2>
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" /></svg>
+              <input id="search" type="search" placeholder="日付で検索" />
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th>
+                  <th>出勤</th>
+                  <th>退勤</th>
+                  <th>休憩分</th>
+                  <th>勤務時間</th>
+                  <th>状態</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="attendance-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="row-template">
+      <tr>
+        <td><input class="date-input" type="date" /></td>
+        <td><input class="start-input" type="time" /></td>
+        <td><input class="end-input" type="time" /></td>
+        <td><input class="break-input" type="number" min="0" step="1" /></td>
+        <td class="worked-cell">0:00</td>
+        <td><span class="status-pill">未入力</span></td>
+        <td>
+          <button class="icon-button danger delete-row" type="button" title="削除" aria-label="削除">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 14h10l1-14" /></svg>
+          </button>
+        </td>
+      </tr>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
