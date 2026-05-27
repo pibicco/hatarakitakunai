@@ -244,7 +244,7 @@ function render() {
     pill.className = `status-pill ${status.className}`.trim();
 
     for (const input of [dateInput, startInput, endInput, breakInput]) {
-      input.addEventListener("input", () => {
+      input.addEventListener("change", () => {
         record.date = dateInput.value;
         record.start = startInput.value;
         record.end = endInput.value;
@@ -259,6 +259,7 @@ function render() {
     }
 
     row.querySelector(".delete-row").addEventListener("click", () => {
+      if (!confirm(`${record.date || "この行"}の勤怠を削除しますか？`)) return;
       state.records = state.records.filter((item) => item.id !== record.id);
       save();
       render();
