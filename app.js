@@ -41,6 +41,7 @@ const SEED_CSV_LIST = [
 ];
 
 const STORAGE_KEY = "attendance-note-records";
+const MIGRATION_KEY = "attendance-note-migrated-to-sheet";
 const state = {
   records: [],
   activeMonth: (() => {
@@ -219,6 +220,18 @@ function postSync(payload) {
   })
     .then(() => setSyncStatus("保存済み"))
     .catch(() => setSyncStatus("保存失敗"));
+}
+
+function migrateLocalRecords(savedRecords) {
+  if (!SYNC_API_URL || localStorage.getItem(MIGRATION_KEY) || !savedRecords.length) return;
+  setSyncStatus("過去データ反映中");
+
+  for (const record of savedRecords.map(normalizeRecord)) {
+    if (record.date) postSync({ action: "upsert", record });
+  }
+
+  localStorage.setItem(MIGRATION_KEY, "true");
+  setSyncStatus("過去データ反映済み");
 }
 
 function saveRecord(record) {
@@ -459,15 +472,18 @@ async function importFile(file) {
 }
 
 async function loadInitialData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  const savedRecords = saved ? JSON.parse(saved).map(normalizeRecord) : [];
+  migrateLocalRecords(savedRecords);
+
   const remoteLoaded = await loadRemoteRecords();
   if (remoteLoaded) {
     render();
     return;
   }
 
-  const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    state.records = JSON.parse(saved).map(normalizeRecord);
+    state.records = savedRecords;
   } else {
     state.records = SEED_CSV_LIST.flatMap(parseCsv);
   }
