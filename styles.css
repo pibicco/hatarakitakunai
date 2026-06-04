@@ -143,6 +143,19 @@ main {
   font-size: 14px;
 }
 
+.punch-today small {
+  display: inline-flex;
+  margin-top: 10px;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .punch-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -2,6 +2,8 @@ const SHEET_CSV_URLS = [
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=523755050",
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=1893875610",
 ];
+const SYNC_API_URL = "";
+const SYNC_API_TOKEN = "";
 
 const SEED_CSV_LIST = [
   `日付,出勤,退勤,休憩分,勤務時間,休憩中,休憩開始
@@ -41,8 +43,12 @@ const SEED_CSV_LIST = [
 const STORAGE_KEY = "attendance-note-records";
 const state = {
   records: [],
-  activeMonth: "2026-05",
+  activeMonth: (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  })(),
   query: "",
+  syncStatus: SYNC_API_URL ? "同期中" : "端末内保存",
 };
 
 const els = {
@@ -58,6 +64,7 @@ const els = {
   longestDay: document.querySelector("#longest-day"),
   openCount: document.querySelector("#open-count"),
   search: document.querySelector("#search"),
+  syncStatus: document.querySelector("#sync-status"),
 };
 
 function parseCsv(text) {
@@ -80,6 +87,10 @@ function mergeRecords(records) {
     state.records.push(record);
     existingDates.add(record.date);
   }
+}
+
+function replaceRecords(records) {
+  state.records = records.map(normalizeRecord).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function normalizeRecord(record) {
@@ -142,6 +153,84 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
 }
 
+function setSyncStatus(message) {
+  state.syncStatus = message;
+  if (els.syncStatus) els.syncStatus.textContent = message;
+}
+
+function apiUrl(params = {}) {
+  const url = new URL(SYNC_API_URL);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") url.searchParams.set(key, value);
+  }
+  if (SYNC_API_TOKEN) url.searchParams.set("token", SYNC_API_TOKEN);
+  return url.toString();
+}
+
+function loadJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `attendanceSync${Date.now()}${Math.round(Math.random() * 10000)}`;
+    const script = document.createElement("script");
+    const cleanup = () => {
+      delete window[callbackName];
+      script.remove();
+    };
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("同期データを読み込めませんでした"));
+    };
+
+    const jsonpUrl = new URL(url);
+    jsonpUrl.searchParams.set("callback", callbackName);
+    script.src = jsonpUrl.toString();
+    document.head.append(script);
+  });
+}
+
+async function loadRemoteRecords() {
+  if (!SYNC_API_URL) return false;
+  setSyncStatus("同期中");
+  try {
+    const payload = await loadJsonp(apiUrl({ action: "list" }));
+    if (!payload.ok) throw new Error(payload.error || "同期に失敗しました");
+    replaceRecords(payload.records || []);
+    save();
+    setSyncStatus("同期済み");
+    return true;
+  } catch {
+    setSyncStatus("同期失敗");
+    return false;
+  }
+}
+
+function postSync(payload) {
+  if (!SYNC_API_URL) return;
+  setSyncStatus("保存中");
+  fetch(apiUrl(), {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify({ ...payload, token: SYNC_API_TOKEN }),
+  })
+    .then(() => setSyncStatus("保存済み"))
+    .catch(() => setSyncStatus("保存失敗"));
+}
+
+function saveRecord(record) {
+  save();
+  postSync({ action: "upsert", record });
+}
+
+function deleteRecord(record) {
+  save();
+  postSync({ action: "delete", date: record.date });
+}
+
 function todayDate() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -189,7 +278,7 @@ function punchStart() {
   const record = ensureTodayRecord();
   if (!record.start) record.start = currentTime();
   if (record.end) record.end = "";
-  save();
+  saveRecord(record);
   render();
 }
 
@@ -198,14 +287,14 @@ function punchBreakStart() {
   if (!record.start || record.end || record.breakActive) return;
   record.breakActive = true;
   record.breakStart = currentTime();
-  save();
+  saveRecord(record);
   render();
 }
 
 function punchBreakEnd() {
   const record = ensureTodayRecord();
   finishBreak(record, currentTime());
-  save();
+  saveRecord(record);
   render();
 }
 
@@ -215,7 +304,7 @@ function punchEnd() {
   const endTime = currentTime();
   finishBreak(record, endTime);
   record.end = endTime;
-  save();
+  saveRecord(record);
   render();
 }
 
@@ -253,7 +342,7 @@ function render() {
           record.breakActive = false;
           record.breakStart = "";
         }
-        save();
+        saveRecord(record);
         render();
       });
     }
@@ -261,7 +350,7 @@ function render() {
     row.querySelector(".delete-row").addEventListener("click", () => {
       if (!confirm(`${record.date || "この行"}の勤怠を削除しますか？`)) return;
       state.records = state.records.filter((item) => item.id !== record.id);
-      save();
+      deleteRecord(record);
       render();
     });
 
@@ -270,6 +359,7 @@ function render() {
 
   renderSummary();
   renderPunchPanel();
+  setSyncStatus(state.syncStatus);
 }
 
 function renderSummary() {
@@ -329,7 +419,7 @@ function addRow() {
     breakActive: false,
     breakStart: "",
   });
-  save();
+  saveRecord(state.records[state.records.length - 1]);
   render();
 }
 
@@ -364,10 +454,17 @@ async function importFile(file) {
   state.records = parseCsv(text);
   state.activeMonth = state.records[0]?.date.slice(0, 7) || state.activeMonth;
   save();
+  for (const record of state.records) postSync({ action: "upsert", record });
   render();
 }
 
 async function loadInitialData() {
+  const remoteLoaded = await loadRemoteRecords();
+  if (remoteLoaded) {
+    render();
+    return;
+  }
+
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     state.records = JSON.parse(saved).map(normalizeRecord);
