@@ -2,7 +2,7 @@ const SHEET_CSV_URLS = [
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=523755050",
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=1893875610",
 ];
-const SYNC_API_URL = "";
+const SYNC_API_URL = "https://script.google.com/macros/s/AKfycbzHe8HYEW6wrJtSJ8IEAbqqNjh_h7OGxKXAwdoUHunj67XFXP8k-YNAoa1dwsoF1oo9/exec";
 const SYNC_API_TOKEN = "";
 
 const SEED_CSV_LIST = [
