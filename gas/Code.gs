@@ -8,6 +8,8 @@ function doGet(e) {
   const result = handleRequest({
     action: e.parameter.action || "list",
     token: e.parameter.token || "",
+    date: e.parameter.date || "",
+    month: e.parameter.month || "",
   });
   const body = callback ? `${callback}(${JSON.stringify(result)})` : JSON.stringify(result);
   const mimeType = callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON;
@@ -27,7 +29,7 @@ function handleRequest(payload) {
     }
 
     if (payload.action === "list") {
-      return { ok: true, records: listRecords() };
+      return { ok: true, records: listRecords({ date: payload.date, month: payload.month }) };
     }
 
     if (payload.action === "upsert") {
@@ -46,28 +48,46 @@ function handleRequest(payload) {
   }
 }
 
-function listRecords() {
+function listRecords(filters) {
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   const records = [];
+  const date = filters && filters.date ? String(filters.date) : "";
+  const month = filters && filters.month ? String(filters.month) : "";
+
+  if (date) {
+    const sheet = spreadsheet.getSheetByName(date.slice(0, 7));
+    if (!sheet) return [];
+    const rowIndex = findRowByDate(sheet, date);
+    return rowIndex ? [recordFromRow(sheet.getRange(rowIndex, 1, 1, HEADERS.length).getDisplayValues()[0])] : [];
+  }
+
+  if (month) {
+    const sheet = spreadsheet.getSheetByName(month);
+    return sheet ? recordsFromSheet(sheet) : [];
+  }
 
   spreadsheet.getSheets().forEach((sheet) => {
     if (!/^\d{4}-\d{2}$/.test(sheet.getName())) return;
-    const values = sheet.getDataRange().getDisplayValues();
-
-    values.slice(1).forEach((row) => {
-      if (!row[0]) return;
-      records.push({
-        date: row[0],
-        start: normalizeTime(row[1]),
-        end: normalizeTime(row[2]),
-        breakMinutes: Number(row[3]) || 0,
-        breakActive: String(row[5]).toLowerCase() === "true",
-        breakStart: normalizeTime(row[6]),
-      });
-    });
+    records.push(...recordsFromSheet(sheet));
   });
 
   return records.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function recordsFromSheet(sheet) {
+  const values = sheet.getDataRange().getDisplayValues();
+  return values.slice(1).filter((row) => row[0]).map(recordFromRow);
+}
+
+function recordFromRow(row) {
+  return {
+    date: row[0],
+    start: normalizeTime(row[1]),
+    end: normalizeTime(row[2]),
+    breakMinutes: Number(row[3]) || 0,
+    breakActive: String(row[5]).toLowerCase() === "true",
+    breakStart: normalizeTime(row[6]),
+  };
 }
 
 function upsertRecord(record) {

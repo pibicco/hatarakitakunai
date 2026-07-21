@@ -1,9 +1,12 @@
 const SHEET_CSV_URLS = [
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=523755050",
   "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=1893875610",
+  "https://docs.google.com/spreadsheets/d/1QajsUci9L_a4HABS5c4qZ6Mu0-9zoBV9I8zxqGYllhk/export?format=csv&gid=865667969",
 ];
 const SYNC_API_URL = "https://script.google.com/macros/s/AKfycbzHe8HYEW6wrJtSJ8IEAbqqNjh_h7OGxKXAwdoUHunj67XFXP8k-YNAoa1dwsoF1oo9/exec";
 const SYNC_API_TOKEN = "";
+const IS_CHROME_EXTENSION = Boolean(globalThis.chrome?.runtime?.id);
+const DEFAULT_BREAK_MINUTES = 60;
 
 const SEED_CSV_LIST = [
   `日付,出勤,退勤,休憩分,勤務時間,休憩中,休憩開始
@@ -66,6 +69,8 @@ const els = {
   openCount: document.querySelector("#open-count"),
   search: document.querySelector("#search"),
   syncStatus: document.querySelector("#sync-status"),
+  checkoutStart: document.querySelector("#checkout-start"),
+  checkoutBreak: document.querySelector("#checkout-break"),
 };
 
 function parseCsv(text) {
@@ -92,6 +97,21 @@ function mergeRecords(records) {
 
 function replaceRecords(records) {
   state.records = records.map(normalizeRecord).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function upsertRecords(records) {
+  const recordByDate = new Map(state.records.map((record) => [record.date, record]));
+  for (const record of records.map(normalizeRecord)) {
+    if (!record.date) continue;
+    const existing = recordByDate.get(record.date);
+    if (existing) {
+      Object.assign(existing, record, { id: existing.id });
+    } else {
+      state.records.push(record);
+      recordByDate.set(record.date, record);
+    }
+  }
+  state.records.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function normalizeRecord(record) {
@@ -150,6 +170,10 @@ function monthRecords() {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function dateRecords(records, date) {
+  return records.filter((record) => record.date === date);
+}
+
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
 }
@@ -172,7 +196,12 @@ function loadJsonp(url) {
   return new Promise((resolve, reject) => {
     const callbackName = `attendanceSync${Date.now()}${Math.round(Math.random() * 10000)}`;
     const script = document.createElement("script");
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("同期データの読み込みが時間切れです"));
+    }, 8000);
     const cleanup = () => {
+      clearTimeout(timeoutId);
       delete window[callbackName];
       script.remove();
     };
@@ -198,9 +227,11 @@ async function loadRemoteRecords() {
   if (!SYNC_API_URL) return false;
   setSyncStatus("同期中");
   try {
-    const payload = await loadJsonp(apiUrl({ action: "list" }));
+    const payload = IS_CHROME_EXTENSION
+      ? await extensionRequest({ type: "attendance:list" })
+      : await loadJsonp(apiUrl({ action: "list" }));
     if (!payload.ok) throw new Error(payload.error || "同期に失敗しました");
-    replaceRecords(payload.records || []);
+    upsertRecords(payload.records || []);
     save();
     setSyncStatus("同期済み");
     return true;
@@ -210,9 +241,20 @@ async function loadRemoteRecords() {
   }
 }
 
+function extensionRequest(message) {
+  return chrome.runtime.sendMessage(message);
+}
+
 function postSync(payload) {
   if (!SYNC_API_URL) return;
   setSyncStatus("保存中");
+  if (IS_CHROME_EXTENSION) {
+    extensionRequest({ type: "attendance:post", payload })
+      .then((response) => setSyncStatus(response?.ok === false ? "保存失敗" : "保存済み"))
+      .catch(() => setSyncStatus("保存失敗"));
+    return;
+  }
+
   fetch(apiUrl(), {
     method: "POST",
     mode: "no-cors",
@@ -280,6 +322,10 @@ function minutesBetween(startTime, endTime) {
   return Math.max(end - start, 0);
 }
 
+function checkoutBreakMinutes() {
+  return Number.parseInt(els.checkoutBreak.value || String(DEFAULT_BREAK_MINUTES), 10) || 0;
+}
+
 function finishBreak(record, endTime) {
   if (!record.breakActive || !record.breakStart) return;
   record.breakMinutes += minutesBetween(record.breakStart, endTime);
@@ -313,9 +359,20 @@ function punchBreakEnd() {
 
 function punchEnd() {
   const record = ensureTodayRecord();
-  if (!record.start || record.end) return;
+  if (record.end) return;
+
+  const checkoutStart = normalizeTime(els.checkoutStart.value);
+  if (!record.start && checkoutStart) record.start = checkoutStart;
+  if (!record.start) {
+    setSyncStatus("出勤時刻を入力してください");
+    els.checkoutStart.focus();
+    return;
+  }
+
   const endTime = currentTime();
+  const wasBreakActive = record.breakActive;
   finishBreak(record, endTime);
+  if (!wasBreakActive) record.breakMinutes = checkoutBreakMinutes();
   record.end = endTime;
   saveRecord(record);
   render();
@@ -408,10 +465,17 @@ function renderPunchPanel() {
   document.querySelector("#punch-date").textContent = date;
   document.querySelector("#punch-detail").textContent = detailParts.length ? `${status.text} / ${detailParts.join(" / ")}` : "未入力";
 
+  if (document.activeElement !== els.checkoutStart) {
+    els.checkoutStart.value = record?.start || els.checkoutStart.value || "";
+  }
+  if (document.activeElement !== els.checkoutBreak) {
+    els.checkoutBreak.value = String(record?.breakMinutes || DEFAULT_BREAK_MINUTES);
+  }
+
   document.querySelector("#punch-start").disabled = Boolean(record?.start && !record?.end);
   document.querySelector("#break-start").disabled = !record?.start || Boolean(record?.end) || Boolean(record?.breakActive);
   document.querySelector("#break-end").disabled = !record?.breakActive;
-  document.querySelector("#punch-end").disabled = !record?.start || Boolean(record?.end);
+  document.querySelector("#punch-end").disabled = Boolean(record?.end);
 }
 
 function changeMonth(delta) {
@@ -476,12 +540,6 @@ async function loadInitialData() {
   const savedRecords = saved ? JSON.parse(saved).map(normalizeRecord) : [];
   migrateLocalRecords(savedRecords);
 
-  const remoteLoaded = await loadRemoteRecords();
-  if (remoteLoaded) {
-    render();
-    return;
-  }
-
   if (saved) {
     state.records = savedRecords;
   } else {
@@ -491,6 +549,12 @@ async function loadInitialData() {
   mergeRecords(SEED_CSV_LIST.flatMap(parseCsv));
   save();
   render();
+
+  const remoteLoaded = await loadRemoteRecords();
+  if (remoteLoaded) {
+    render();
+    return;
+  }
 
   for (const url of SHEET_CSV_URLS) {
     try {

@@ -156,6 +156,36 @@ main {
   font-weight: 800;
 }
 
+.checkout-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.checkout-fields label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.checkout-fields input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 10px;
+}
+
+.checkout-fields input:focus {
+  outline: 2px solid rgba(0, 127, 115, 0.18);
+  border-color: var(--accent);
+}
+
 .punch-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -496,6 +526,10 @@ td input:focus {
   }
 
   .punch-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-fields {
     grid-template-columns: 1fr;
   }
 }
