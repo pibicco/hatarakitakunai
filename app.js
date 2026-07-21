@@ -227,9 +227,19 @@ async function loadRemoteRecords() {
   if (!SYNC_API_URL) return false;
   setSyncStatus("同期中");
   try {
-    const payload = IS_CHROME_EXTENSION
-      ? await extensionRequest({ type: "attendance:list" })
-      : await loadJsonp(apiUrl({ action: "list" }));
+    let payload;
+    if (IS_CHROME_EXTENSION) {
+      try {
+        payload = await extensionRequest({ type: "attendance:list" });
+      } catch (error) {
+        console.warn("Extension sync failed. Falling back to JSONP.", error);
+      }
+    }
+
+    if (!payload) {
+      payload = await loadJsonp(apiUrl({ action: "list" }));
+    }
+
     if (!payload.ok) throw new Error(payload.error || "同期に失敗しました");
     upsertRecords(payload.records || []);
     save();
@@ -335,7 +345,8 @@ function finishBreak(record, endTime) {
 
 function punchStart() {
   const record = ensureTodayRecord();
-  if (!record.start) record.start = currentTime();
+  const checkoutStart = normalizeTime(els.checkoutStart.value);
+  if (!record.start) record.start = checkoutStart || currentTime();
   if (record.end) record.end = "";
   saveRecord(record);
   render();
@@ -362,7 +373,7 @@ function punchEnd() {
   if (record.end) return;
 
   const checkoutStart = normalizeTime(els.checkoutStart.value);
-  if (!record.start && checkoutStart) record.start = checkoutStart;
+  if (checkoutStart) record.start = checkoutStart;
   if (!record.start) {
     setSyncStatus("出勤時刻を入力してください");
     els.checkoutStart.focus();
