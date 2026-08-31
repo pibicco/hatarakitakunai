@@ -70,8 +70,20 @@ const els = {
   search: document.querySelector("#search"),
   syncStatus: document.querySelector("#sync-status"),
   checkoutStart: document.querySelector("#checkout-start"),
+  checkoutEnd: document.querySelector("#checkout-end"),
   checkoutBreak: document.querySelector("#checkout-break"),
 };
+
+const GHOST_SAVE_CLICK_DELAY_MS = 1200;
+let lastInlineEditAt = 0;
+
+function markInlineEdit() {
+  lastInlineEditAt = Date.now();
+}
+
+function shouldIgnoreGhostSaveClick() {
+  return Date.now() - lastInlineEditAt < GHOST_SAVE_CLICK_DELAY_MS;
+}
 
 function parseCsv(text) {
   const rows = text.trim().split(/\r?\n/).map((line) => line.split(","));
@@ -380,7 +392,7 @@ function punchEnd() {
     return;
   }
 
-  const endTime = currentTime();
+  const endTime = normalizeTime(els.checkoutEnd.value) || currentTime();
   const wasBreakActive = record.breakActive;
   finishBreak(record, endTime);
   if (!wasBreakActive) record.breakMinutes = checkoutBreakMinutes();
@@ -402,6 +414,7 @@ function render() {
     const breakInput = row.querySelector(".break-input");
     const workedCell = row.querySelector(".worked-cell");
     const pill = row.querySelector(".status-pill");
+    const saveButton = row.querySelector(".save-row");
 
     dateInput.value = record.date;
     startInput.value = record.start;
@@ -413,20 +426,50 @@ function render() {
     pill.textContent = status.text;
     pill.className = `status-pill ${status.className}`.trim();
 
+    const draftRecord = () => ({
+      ...record,
+      date: dateInput.value,
+      start: normalizeTime(startInput.value),
+      end: normalizeTime(endInput.value),
+      breakMinutes: Number.parseInt(breakInput.value || "0", 10) || 0,
+    });
+    const refreshDraft = () => {
+      const draft = draftRecord();
+      const dirty = draft.date !== record.date
+        || draft.start !== record.start
+        || draft.end !== record.end
+        || draft.breakMinutes !== record.breakMinutes;
+      workedCell.textContent = formatMinutes(workedMinutes(draft));
+      const draftStatus = statusFor(draft);
+      pill.textContent = dirty ? "未確定" : draftStatus.text;
+      pill.className = `status-pill ${dirty ? "draft" : draftStatus.className}`.trim();
+      saveButton.disabled = !dirty;
+    };
+
     for (const input of [dateInput, startInput, endInput, breakInput]) {
+      input.addEventListener("focus", markInlineEdit);
+      input.addEventListener("blur", markInlineEdit);
+      input.addEventListener("input", refreshDraft);
       input.addEventListener("change", () => {
-        record.date = dateInput.value;
-        record.start = startInput.value;
-        record.end = endInput.value;
-        record.breakMinutes = Number.parseInt(breakInput.value || "0", 10) || 0;
-        if (record.end) {
-          record.breakActive = false;
-          record.breakStart = "";
-        }
-        saveRecord(record);
-        render();
+        markInlineEdit();
+        refreshDraft();
       });
     }
+
+    saveButton.addEventListener("click", (event) => {
+      if (event.detail !== 0 && shouldIgnoreGhostSaveClick()) {
+        event.preventDefault();
+        return;
+      }
+
+      Object.assign(record, draftRecord());
+      if (record.end) {
+        record.breakActive = false;
+        record.breakStart = "";
+      }
+      saveRecord(record);
+      render();
+    });
 
     row.querySelector(".delete-row").addEventListener("click", () => {
       if (!confirm(`${record.date || "この行"}の勤怠を削除しますか？`)) return;
@@ -478,6 +521,9 @@ function renderPunchPanel() {
 
   if (document.activeElement !== els.checkoutStart) {
     els.checkoutStart.value = record?.start || els.checkoutStart.value || "";
+  }
+  if (document.activeElement !== els.checkoutEnd) {
+    els.checkoutEnd.value = record?.end || "";
   }
   if (document.activeElement !== els.checkoutBreak) {
     els.checkoutBreak.value = String(record?.breakMinutes || DEFAULT_BREAK_MINUTES);
