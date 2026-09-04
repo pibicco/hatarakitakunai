@@ -71,17 +71,24 @@
             <span>今日の打刻</span>
             <strong id="punch-date">-</strong>
             <p id="punch-detail">未入力</p>
-            <small id="sync-status">端末内保存</small>
-            <div class="checkout-fields" aria-label="退勤時の入力">
-              <label>
-                <span>出勤</span>
-                <input id="checkout-start" type="time" />
-              </label>
-              <label>
-                <span>休憩分</span>
-                <input id="checkout-break" type="number" min="0" step="1" value="60" />
-              </label>
-            </div>
+            <small id="sync-status">同期中</small>
+            <details class="time-adjust">
+              <summary>時刻を直す</summary>
+              <div class="checkout-fields" aria-label="退勤時の入力">
+                <label>
+                  <span>出勤</span>
+                  <input id="checkout-start" type="time" />
+                </label>
+                <label>
+                  <span>退勤</span>
+                  <input id="checkout-end" type="time" />
+                </label>
+                <label>
+                  <span>休憩分</span>
+                  <input id="checkout-break" type="number" min="0" step="1" value="60" />
+                </label>
+              </div>
+            </details>
           </div>
           <div class="punch-actions">
             <button class="punch-button start" id="punch-start" type="button">
@@ -154,7 +161,10 @@
         <td><input class="break-input" type="number" min="0" step="1" /></td>
         <td class="worked-cell">0:00</td>
         <td><span class="status-pill">未入力</span></td>
-        <td>
+        <td class="row-actions">
+          <button class="icon-button save-row" type="button" title="確定" aria-label="確定" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+          </button>
           <button class="icon-button danger delete-row" type="button" title="削除" aria-label="削除">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 14h10l1-14" /></svg>
           </button>

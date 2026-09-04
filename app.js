@@ -237,23 +237,24 @@ function loadJsonp(url) {
 
 async function loadRemoteRecords() {
   if (!SYNC_API_URL) return false;
+  const month = state.activeMonth;
   setSyncStatus("同期中");
   try {
     let payload;
     if (IS_CHROME_EXTENSION) {
       try {
-        payload = await extensionRequest({ type: "attendance:list" });
+        payload = await extensionRequest({ type: "attendance:list", month });
       } catch (error) {
         console.warn("Extension sync failed. Falling back to JSONP.", error);
       }
     }
 
     if (!payload) {
-      payload = await loadJsonp(apiUrl({ action: "list" }));
+      payload = await loadJsonp(apiUrl({ action: "list", month }));
     }
 
     if (!payload.ok) throw new Error(payload.error || "同期に失敗しました");
-    upsertRecords(payload.records || []);
+    upsertRecords((payload.records || []).filter((record) => record.date?.startsWith(month)));
     save();
     setSyncStatus("同期済み");
     return true;
@@ -540,6 +541,9 @@ function changeMonth(delta) {
   const next = new Date(year, month - 1 + delta, 1);
   state.activeMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
   render();
+  loadRemoteRecords().then((loaded) => {
+    if (loaded) render();
+  });
 }
 
 function addRow() {
