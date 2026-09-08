@@ -66,43 +66,28 @@
           </div>
         </header>
 
-        <section class="punch-panel" aria-label="打刻">
+        <section class="punch-panel" aria-label="退勤入力">
           <div class="punch-today">
-            <span>今日の打刻</span>
+            <span>今日の退勤</span>
             <strong id="punch-date">-</strong>
             <p id="punch-detail">未入力</p>
             <small id="sync-status">同期中</small>
-            <details class="time-adjust">
-              <summary>時刻を直す</summary>
-              <div class="checkout-fields" aria-label="退勤時の入力">
-                <label>
-                  <span>出勤</span>
-                  <input id="checkout-start" type="time" />
-                </label>
-                <label>
-                  <span>退勤</span>
-                  <input id="checkout-end" type="time" />
-                </label>
-                <label>
-                  <span>休憩分</span>
-                  <input id="checkout-break" type="number" min="0" step="1" value="60" />
-                </label>
-              </div>
-            </details>
+            <div class="checkout-fields" aria-label="退勤時の入力">
+              <label>
+                <span>出勤</span>
+                <input id="checkout-start" type="time" />
+              </label>
+              <label>
+                <span>退勤</span>
+                <input id="checkout-end" type="time" />
+              </label>
+              <label>
+                <span>休憩分</span>
+                <input id="checkout-break" type="number" min="0" step="1" value="60" />
+              </label>
+            </div>
           </div>
           <div class="punch-actions">
-            <button class="punch-button start" id="punch-start" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" /></svg>
-              出勤
-            </button>
-            <button class="punch-button break-start" id="break-start" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5h2v14h-2zM15 5h2v14h-2z" /></svg>
-              休憩開始
-            </button>
-            <button class="punch-button break-end" id="break-end" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" /></svg>
-              休憩終了
-            </button>
             <button class="punch-button end" id="punch-end" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>
               退勤

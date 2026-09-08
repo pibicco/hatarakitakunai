@@ -338,47 +338,8 @@ function ensureTodayRecord() {
   return record;
 }
 
-function minutesBetween(startTime, endTime) {
-  const start = toMinutes(startTime);
-  const end = toMinutes(endTime);
-  if (start === null || end === null) return 0;
-  return Math.max(end - start, 0);
-}
-
 function checkoutBreakMinutes() {
   return Number.parseInt(els.checkoutBreak.value || String(DEFAULT_BREAK_MINUTES), 10) || 0;
-}
-
-function finishBreak(record, endTime) {
-  if (!record.breakActive || !record.breakStart) return;
-  record.breakMinutes += minutesBetween(record.breakStart, endTime);
-  record.breakActive = false;
-  record.breakStart = "";
-}
-
-function punchStart() {
-  const record = ensureTodayRecord();
-  const checkoutStart = normalizeTime(els.checkoutStart.value);
-  if (!record.start) record.start = checkoutStart || currentTime();
-  if (record.end) record.end = "";
-  saveRecord(record);
-  render();
-}
-
-function punchBreakStart() {
-  const record = ensureTodayRecord();
-  if (!record.start || record.end || record.breakActive) return;
-  record.breakActive = true;
-  record.breakStart = currentTime();
-  saveRecord(record);
-  render();
-}
-
-function punchBreakEnd() {
-  const record = ensureTodayRecord();
-  finishBreak(record, currentTime());
-  saveRecord(record);
-  render();
 }
 
 function punchEnd() {
@@ -394,9 +355,9 @@ function punchEnd() {
   }
 
   const endTime = normalizeTime(els.checkoutEnd.value) || currentTime();
-  const wasBreakActive = record.breakActive;
-  finishBreak(record, endTime);
-  if (!wasBreakActive) record.breakMinutes = checkoutBreakMinutes();
+  record.breakMinutes = checkoutBreakMinutes();
+  record.breakActive = false;
+  record.breakStart = "";
   record.end = endTime;
   saveRecord(record);
   render();
@@ -530,9 +491,6 @@ function renderPunchPanel() {
     els.checkoutBreak.value = String(record?.breakMinutes || DEFAULT_BREAK_MINUTES);
   }
 
-  document.querySelector("#punch-start").disabled = Boolean(record?.start && !record?.end);
-  document.querySelector("#break-start").disabled = !record?.start || Boolean(record?.end) || Boolean(record?.breakActive);
-  document.querySelector("#break-end").disabled = !record?.breakActive;
   document.querySelector("#punch-end").disabled = Boolean(record?.end);
 }
 
@@ -634,9 +592,6 @@ async function loadInitialData() {
 document.querySelector("#prev-month").addEventListener("click", () => changeMonth(-1));
 document.querySelector("#next-month").addEventListener("click", () => changeMonth(1));
 document.querySelector("#add-row").addEventListener("click", addRow);
-document.querySelector("#punch-start").addEventListener("click", punchStart);
-document.querySelector("#break-start").addEventListener("click", punchBreakStart);
-document.querySelector("#break-end").addEventListener("click", punchBreakEnd);
 document.querySelector("#punch-end").addEventListener("click", punchEnd);
 document.querySelector("#download-csv").addEventListener("click", downloadCsv);
 document.querySelector("#csv-input").addEventListener("change", (event) => {

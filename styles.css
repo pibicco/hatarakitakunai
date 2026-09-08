@@ -22,10 +22,7 @@ body {
   min-height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
-  background:
-    linear-gradient(135deg, rgba(0, 127, 115, 0.11), transparent 32%),
-    linear-gradient(315deg, rgba(36, 107, 159, 0.12), transparent 30%),
-    #eef3f6;
+  background: #eef3f6;
 }
 
 button,
@@ -119,9 +116,9 @@ main {
 .punch-panel {
   display: grid;
   order: -1;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.7fr);
   gap: 16px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .punch-today span {
@@ -158,9 +155,9 @@ main {
 
 .checkout-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .checkout-fields label {
@@ -188,13 +185,13 @@ main {
 
 .punch-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
 .punch-button {
   display: grid;
-  min-height: 86px;
+  min-height: 100%;
   place-items: center;
   align-content: center;
   gap: 8px;
@@ -230,17 +227,13 @@ main {
 .punch-button.start {
   color: var(--accent-strong);
   background: #e7f4f1;
-}
-
-.punch-button.break-start,
-.punch-button.break-end {
-  color: var(--warn);
-  background: #fff7ed;
+  font-size: 18px;
 }
 
 .punch-button.end {
   color: var(--danger);
   background: #fff1f1;
+  font-size: 22px;
 }
 
 .toolbar {
@@ -290,6 +283,21 @@ main {
 .primary-button:hover {
   transform: translateY(-1px);
   border-color: var(--accent);
+}
+
+.icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+}
+
+.icon-button.save-row {
+  color: var(--accent);
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .icon-button svg,
@@ -447,6 +455,11 @@ td input:focus {
 .status-pill.break {
   background: #fff7d6;
   color: #8a6200;
+}
+
+.status-pill.draft {
+  background: #e9f2ff;
+  color: var(--blue);
 }
 
 .status-pill.empty {
